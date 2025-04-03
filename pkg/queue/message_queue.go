@@ -14,10 +14,14 @@ const (
 	Finished
 )
 
+func (s Status) String() string {
+	return []string{"ready", "processing", "finished"}[s]
+}
+
 type Message struct {
-	ID      uuid.UUID
-	Status  Status
-	Payload json.RawMessage
+	ID      uuid.UUID       `json:"id"`
+	Status  Status          `json:"status"`
+	Payload json.RawMessage `json:"payload"`
 }
 
 func NewMessage(payload json.RawMessage) *Message {
@@ -33,25 +37,25 @@ func (m *Message) hasStatus(status Status) bool {
 }
 
 type MessageQueue struct {
-	queue []*Message
+	Queue []*Message
 }
 
-func NewMessageQueue() MessageQueue {
-	return MessageQueue{
-		queue: make([]*Message, 1000),
+func NewMessageQueue() *MessageQueue {
+	return &MessageQueue{
+		Queue: make([]*Message, 0, 1000),
 	}
 }
 
-func (q MessageQueue) Queue(message *Message) {
-	q.queue = append(q.queue, message)
+func (q *MessageQueue) Enqueue(message *Message) {
+	q.Queue = append(q.Queue, message)
 }
 
-func (q MessageQueue) Read() *Message {
-	if len(q.queue) == 0 {
+func (q *MessageQueue) Read() *Message {
+	if len(q.Queue) == 0 {
 		return nil
 	}
 
-	message := q.queue[0]
+	message := q.Queue[0]
 	if message.hasStatus(Processing) {
 		return nil
 	}
@@ -61,15 +65,15 @@ func (q MessageQueue) Read() *Message {
 	return message
 }
 
-func (q MessageQueue) Dequeue() *Message {
-	if len(q.queue) == 0 {
+func (q *MessageQueue) Dequeue() *Message {
+	if len(q.Queue) == 0 {
 		return nil
 	}
 
-	message := q.queue[0]
+	message := q.Queue[0]
 	message.Status = Finished
 
-	q.queue = q.queue[1:]
+	q.Queue = q.Queue[1:]
 
 	return message
 }

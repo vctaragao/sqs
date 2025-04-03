@@ -2,21 +2,23 @@ package sqs
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/vctaragao/sqs/pkg/queue"
 )
 
 type SQS struct {
-	messageQueue queue.MessageQueue
+	messageQueue *queue.MessageQueue
 }
 
-func NewSQSService() *SQS {
+func NewSQSService(messageQueue *queue.MessageQueue) *SQS {
 	return &SQS{
-		messageQueue: queue.NewMessageQueue(),
+		messageQueue: messageQueue,
 	}
 }
 
+// TODO: create integration tests for the handlers
 func (s *SQS) RegisterHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("GET /", s.readMessage)
 	mux.HandleFunc("POST /", s.queueMessage)
@@ -24,6 +26,7 @@ func (s *SQS) RegisterHandlers(mux *http.ServeMux) {
 }
 
 func (s *SQS) queueMessage(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("queueing message")
 	var messageRequest json.RawMessage
 	if err := json.NewDecoder(r.Body).Decode(&messageRequest); err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -31,12 +34,24 @@ func (s *SQS) queueMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.messageQueue.Queue(queue.NewMessage(messageRequest))
+	fmt.Println("queueing message")
+
+	message := queue.NewMessage(messageRequest)
+	s.messageQueue.Enqueue(message)
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(message)
 }
 
 func (s *SQS) readMessage(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(s.messageQueue.Read())
+	message := s.messageQueue.Read()
+	statusCode := http.StatusOK
+	if message == nil {
+		statusCode = http.StatusNoContent
+	}
+
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(message)
 }
 
 func (s *SQS) removeMessage(w http.ResponseWriter, r *http.Request) {
