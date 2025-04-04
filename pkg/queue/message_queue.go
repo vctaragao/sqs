@@ -2,8 +2,14 @@ package queue
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/google/uuid"
+)
+
+var (
+	ErrEmptyQueue   = errors.New("empty queue")
+	ErrNotProcessed = errors.New("message has not yet been processed")
 )
 
 type Status int
@@ -65,15 +71,19 @@ func (q *MessageQueue) Read() *Message {
 	return message
 }
 
-func (q *MessageQueue) Dequeue() *Message {
+func (q *MessageQueue) Dequeue() (*Message, error) {
 	if len(q.Queue) == 0 {
-		return nil
+		return nil, ErrEmptyQueue
 	}
 
 	message := q.Queue[0]
+	if message.hasStatus(Ready) {
+		return nil, ErrNotProcessed
+	}
+
 	message.Status = Finished
 
 	q.Queue = q.Queue[1:]
 
-	return message
+	return message, nil
 }

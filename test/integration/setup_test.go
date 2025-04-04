@@ -33,7 +33,6 @@ func SetupTestSuite(t *testing.T) TestSuite {
 		messageQueue: messageQueue,
 	}
 
-	fmt.Println("testing server listening on: ", testServer.Listener.Addr().String())
 	testServer.Start()
 
 	return testSuite
@@ -56,6 +55,30 @@ func (ts *TestSuite) ExpectMessageInQueue(t *testing.T, expectedMessage queue.Me
 	message := ts.messageQueue.Queue[0]
 	require.NotNil(t, message)
 
+	assert.Equal(t, expectedMessage.ID, message.ID)
 	assert.JSONEq(t, string(expectedMessage.Payload), string(message.Payload))
 	assert.Equal(t, expectedMessage.Status, message.Status, fmt.Sprintf("has: %s, want: %s\n", message.Status, expectedMessage.Status))
+}
+
+func (ts *TestSuite) CountInQueue(t *testing.T, size int) {
+	t.Helper()
+
+	assert.Len(t, ts.messageQueue.Queue, size)
+}
+
+func (ts *TestSuite) ClenQueue() {
+	*ts.messageQueue = *queue.NewMessageQueue()
+}
+
+func (ts *TestSuite) TestCleanup(t *testing.T, testFunc func(t *testing.T)) func(t *testing.T) {
+	t.Helper()
+
+	return func(t *testing.T) {
+		t.Cleanup(ts.ClenQueue)
+		testFunc(t)
+	}
+}
+
+func (ts *TestSuite) SeedQueue(message *queue.Message) {
+	ts.messageQueue.Queue = append(ts.messageQueue.Queue, message)
 }
